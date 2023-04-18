@@ -7,7 +7,7 @@ from random import randint
 import re
 import pytz
 
-url = f'''https://api.telegram.org/bot{open('telegram.token').read()}/'''
+url = f'''https://api.telegram.org/bot{open('telegram.token').read().strip()}/'''
 
 
 def how_long_to_session() -> str:
@@ -44,7 +44,13 @@ def parse_dice_query(query: str) -> str:
 
 while True:
     sleep(1)
-    data = get(url + 'getUpdates').json()['result']
+    data = get(url + 'getUpdates').json()
+    try:
+        data = data['result']
+    except KeyError as ke:
+        print(data)
+        print(url + 'getUpdates')
+        raise ke
     rs = [x['inline_query'] for x in data if 'inline_query' in x]
     for x in rs:
         if is_dice_query(x['query']):
