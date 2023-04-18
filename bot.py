@@ -7,7 +7,7 @@ from random import randint
 import re
 import pytz
 
-url = f'''https://api.telegram.org/{open('~/telegram.token').read()}/'''
+url = f'''https://api.telegram.org/bot{open('telegram.token').read()}/'''
 
 
 def how_long_to_session() -> str:
