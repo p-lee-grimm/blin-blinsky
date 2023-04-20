@@ -12,6 +12,8 @@ url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
 
 
 def how_long_to_session() -> str:
+    if dt.now().weekday() == WEDNESDAY and 16 <= dt.now(tz=pytz.utc).hour <= 20:
+        return 'сессия уже идёт!'
     wdd = (dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - WEDNESDAY)).replace(hour=16, minute=0, second=0,
                                                                                         microsecond=0)
     if wdd < dt.now(tz=pytz.utc):
@@ -22,7 +24,7 @@ def how_long_to_session() -> str:
     hours = delta // (60 * 60) % 24
     minutes = delta // 60 % 60
     seconds = delta % 60
-    return f'''{f"{days} д{'ень' if days == 1 else 'ня' if 2 <= days <= 4 else 'ней'}, " if days > 0 else ""}''' + \
+    return f'''до сессии {f"{days} д{'ень' if days == 1 else 'ня' if 2 <= days <= 4 else 'ней'}, " if days > 0 else ""}''' + \
         f'''{f"{hours} час{'' if hours % 10 == 1 and hours // 10 != 1 else 'а' if hours in (2, 3, 4, 22, 23) else 'ов'}, " if hours > 0 else ""}''' + \
         f'''{f"{minutes} минут{'а' if minutes % 10 == 1 and minutes // 10 != 1 else 'ы' if minutes % 10 in (2, 3, 4) and minutes // 10 != 1 else ''}, " if minutes > 0 else ""}''' + \
         f'''{seconds} секунд{'а' if seconds % 10 == 1 and seconds // 10 != 1 else 'ы' if seconds % 10 in (2, 3, 4) and seconds // 10 != 1 else ""}'''
@@ -94,7 +96,7 @@ if __name__ == '__main__':
                         'id': str(hash(str(result_how_long))),
                         'title': 'Считаю...',
                         'input_message_content': {
-                            'message_text': f'блин блинский до сессии {result_how_long}'
+                            'message_text': f'блин блинский {result_how_long}'
                         }
                     },
                     {
