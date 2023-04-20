@@ -4,10 +4,11 @@ from requests import post, get
 from datetime import datetime as dt, timedelta as td
 from calendar import WEDNESDAY
 from random import randint
+from os import getcwd, listdir
 import re
 import pytz
 
-url = f'''https://api.telegram.org/bot{open('telegram.token').read().strip()}/'''
+url = f'''https://api.telegram.org/bot{open('/home/tolord/telegram.token').read().strip()}/'''
 
 
 def how_long_to_session() -> str:
@@ -34,8 +35,12 @@ def is_dice_query(query: str) -> bool:
 def parse_dice_query(query: str) -> str:
     multiplier, rest = query.split('d', maxsplit=1)
     if multiplier == '':
-        multiplier = 1
+        multiplier = '1'
     dice, add = (rest if '+' in rest else rest + '+0').split('+')
+    if len(dice) > 3:
+        return 'Too big dice can\'t throw it'
+    if len(multiplier) > 2:
+        return 'Got tired while throwing a dice so many times'
     if dice == '0':
         return 'Егор'
     dice_throw = [randint(1, int(dice)) for _ in range(int(multiplier))]
