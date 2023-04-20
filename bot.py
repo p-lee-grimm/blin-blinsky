@@ -91,7 +91,7 @@ if __name__ == '__main__':
             else:
                 result_how_long = how_long_to_session()
                 results = [
-                    {
+                    {  # Compute time to session
                         'type': 'article',
                         'id': str(hash(str(result_how_long))),
                         'title': 'Считаю...',
@@ -99,12 +99,20 @@ if __name__ == '__main__':
                             'message_text': f'блин блинский {result_how_long}'
                         }
                     },
-                    {
+                    {  # Link to Zoom
                         'type': 'article',
                         'id': str(hash('zoom')),
                         'title': 'Ссылка на Zoom',
                         'input_message_content': {
                             'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'
+                        }
+                    },
+                    {  # Link to GitHub
+                        'type': 'article',
+                        'id': str(hash('github')),
+                        'title': 'Ссылка на Github',
+                        'input_message_content': {
+                            'message_text': f'Ссылка на GitHub: https://github.com/p-lee-grimm/blin-blinsky'
                         }
                     }
                 ]
