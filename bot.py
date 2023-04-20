@@ -8,7 +8,6 @@ from os import getcwd, listdir, environ
 import re
 import pytz
 
-print(environ.get('TGTOKEN'))
 url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
 
 
@@ -67,14 +66,8 @@ def parse_dice_query(query: str) -> str:
 
 if __name__ == '__main__':
     while True:
-        sleep(1)
         data = get(url + 'getUpdates').json()
-        try:
-            data = data['result']
-        except KeyError as ke:
-            print(data)
-            print(url + 'getUpdates')
-            raise ke
+        data = data['result']
         rs = [x['inline_query'] for x in data if 'inline_query' in x]
         for x in rs:
             if is_dice_query(x['query']):
