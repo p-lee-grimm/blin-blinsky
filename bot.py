@@ -4,11 +4,12 @@ from requests import post, get
 from datetime import datetime as dt, timedelta as td
 from calendar import WEDNESDAY
 from random import randint
-from os import getcwd, listdir
+from os import getcwd, listdir, environ
 import re
 import pytz
 
-url = f'''https://api.telegram.org/bot{open('telegram.token').read().strip()}/'''
+print(environ.get('TGTOKEN'))
+url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
 
 
 def how_long_to_session() -> str:
