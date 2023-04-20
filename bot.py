@@ -8,7 +8,7 @@ from os import getcwd, listdir
 import re
 import pytz
 
-url = f'''https://api.telegram.org/bot{open('/home/tolord/telegram.token').read().strip()}/'''
+url = f'''https://api.telegram.org/bot{open('telegram.token').read().strip()}/'''
 
 
 def how_long_to_session() -> str:
@@ -29,74 +29,91 @@ def how_long_to_session() -> str:
 
 
 def is_dice_query(query: str) -> bool:
-    return re.match(r'(\d+)?d\d+([+\-]\d+)?$', query) is not None
+    return re.match(r'((\d+)?d?\d+)((\+(\d+)?d\d+)|([+\-]\d+))+$', query) is not None
 
 
 def parse_dice_query(query: str) -> str:
-    multiplier, rest = query.split('d', maxsplit=1)
-    if multiplier == '':
-        multiplier = '1'
-    dice, add = (rest if '+' in rest else rest + '+0').split('+')
-    if len(dice) > 3:
-        return 'Too big dice can\'t throw it'
-    if len(multiplier) > 2:
-        return 'Got tired while throwing a dice so many times'
-    if dice == '0':
-        return 'Егор'
-    dice_throw = [randint(1, int(dice)) for _ in range(int(multiplier))]
-    return f'''({'+'.join(map(str, dice_throw))}) + {add} = {sum(dice_throw) + int(add)}'''
-
-
-while True:
-    sleep(1)
-    data = get(url + 'getUpdates').json()
-    try:
-        data = data['result']
-    except KeyError as ke:
-        print(data)
-        print(url + 'getUpdates')
-        raise ke
-    rs = [x['inline_query'] for x in data if 'inline_query' in x]
-    for x in rs:
-        if is_dice_query(x['query']):
-            try:
-                result = parse_dice_query(x['query'])
-            except ValueError as ve:
-                print(x['query'])
-                raise ve
-            results = [
-                {
-                    'type': 'article',
-                    'id': str(hash(result)),
-                    'title': 'Бросаю...',
-                    'input_message_content': {
-                        'message_text': f'''{x['query']}: {result}''' if result != 'Егор' else f'{x["from"]["first_name"]}, иди нахуй'
-                    }
-                }
-            ]
+    def human_readable_throw_result(throw_result: tuple) -> str:
+        result_num, throw = throw_result
+        first_char = '-' if throw[1] < 0 else '+' if result_num > 0 else ''
+        if throw[0] == 'const':
+            return first_char + str(abs(throw[1]))
         else:
-            result_how_long = how_long_to_session()
-            results = [
-                {
-                    'type': 'article',
-                    'id': str(hash(str(result_how_long))),
-                    'title': 'Считаю...',
-                    'input_message_content': {
-                        'message_text': f'блин блинский до сессии {result_how_long}'
-                    }
-                },
-                {
-                    'type': 'article',
-                    'id': str(hash('zoom')),
-                    'title': 'Ссылка на Zoom',
-                    'input_message_content': {
-                        'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'
-                    }
-                }
-            ]
-        r = post(url + 'answerInlineQuery', json={
-            'inline_query_id': x['id'],
-            'cache_time': 1,
-            'results': results
-        })
+            return first_char + f'''({'+'.join(map(str, throw[2]))})'''
 
+    result = []
+    for throw in re.finditer(r'[+-^](\d+)?d?\d+', query):
+        if 'd' in throw.group():
+            multiplier, dice = throw.group().split('d')
+            if len(dice) > 3:
+                return 'Too big dice can\'t throw it'
+            if len(multiplier) > 3:
+                return 'Got tired while throwing a dice so many times'
+            if dice == '0':
+                return 'Егор'
+            if multiplier in '+-':
+                multiplier += '1'
+            dice_throw = [randint(1, int(dice)) for _ in range(abs(int(multiplier)))]
+            multiplier = int(multiplier)
+            result.append(('throw', multiplier, dice_throw))
+        else:
+            result.append(('const', int(throw.group())))
+    const = sum(x[1] for x in result if x[0] == 'const')
+    result = [x for x in result if x[0] != 'const'] + [('const', const)]
+    return f'''{query} = {''.join(map(human_readable_throw_result, enumerate(result)))}''' \
+           f''' = {sum((x[1] if x[0] == 'const' else sum(x[2]) * x[1] // abs(x[1]) for x in result))}'''
+
+
+if __name__ == '__main__':
+    while True:
+        sleep(1)
+        data = get(url + 'getUpdates').json()
+        try:
+            data = data['result']
+        except KeyError as ke:
+            print(data)
+            print(url + 'getUpdates')
+            raise ke
+        rs = [x['inline_query'] for x in data if 'inline_query' in x]
+        for x in rs:
+            if is_dice_query(x['query']):
+                try:
+                    result = parse_dice_query(x['query'])
+                except ValueError as ve:
+                    print(x['query'])
+                    raise ve
+                results = [
+                    {
+                        'type': 'article',
+                        'id': str(hash(result)),
+                        'title': 'Бросаю...',
+                        'input_message_content': {
+                            'message_text': f'''{x['query']}: {result}''' if result != 'Егор' else f'{x["from"]["first_name"]}, иди нахуй'
+                        }
+                    }
+                ]
+            else:
+                result_how_long = how_long_to_session()
+                results = [
+                    {
+                        'type': 'article',
+                        'id': str(hash(str(result_how_long))),
+                        'title': 'Считаю...',
+                        'input_message_content': {
+                            'message_text': f'блин блинский до сессии {result_how_long}'
+                        }
+                    },
+                    {
+                        'type': 'article',
+                        'id': str(hash('zoom')),
+                        'title': 'Ссылка на Zoom',
+                        'input_message_content': {
+                            'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'
+                        }
+                    }
+                ]
+            r = post(url + 'answerInlineQuery', json={
+                'inline_query_id': x['id'],
+                'cache_time': 1,
+                'results': results
+            })
