@@ -12,7 +12,7 @@ url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
 
 
 def how_long_to_session() -> str:
-    if dt.now().weekday() == WEDNESDAY and 16 <= dt.now(tz=pytz.utc).hour <= 20:
+    if dt.now().weekday() == WEDNESDAY and 16 <= dt.now(tz=pytz.utc).hour < 20:
         return 'сессия уже идёт!'
     wdd = (dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - WEDNESDAY)).replace(hour=16, minute=0, second=0,
                                                                                         microsecond=0)
