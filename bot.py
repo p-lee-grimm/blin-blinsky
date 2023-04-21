@@ -31,7 +31,7 @@ def how_long_to_session() -> str:
 
 
 def is_dice_query(query: str) -> bool:
-    return re.match(r'((\d+)?d?\d+)((\+(\d+)?d\d+)|([+\-]\d+))+$', query) is not None
+    return re.match(r'((\d+)?d?\d+)((\+(\d+)?d\d+)|([+\-]\d+))*$', query) is not None
 
 
 def parse_dice_query(query: str) -> str:
