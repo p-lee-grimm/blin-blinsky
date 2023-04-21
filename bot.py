@@ -69,7 +69,17 @@ def parse_dice_query(query: str) -> str:
 if __name__ == '__main__':
     while True:
         data = get(url + 'getUpdates').json()
-        data = data['result']
+        try:
+            data = data['result']
+        except KeyError as ke:
+            print(ke)
+            post(url + 'sendMessage',
+                json={
+                    'chat_id': '91717534',
+                    'text': f'Шеф, всё упало: {ke}'
+                }
+            )
+            continue
         rs = [x['inline_query'] for x in data if 'inline_query' in x]
         for x in rs:
             if is_dice_query(x['query']):
