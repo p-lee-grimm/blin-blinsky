@@ -5,10 +5,15 @@ from datetime import datetime as dt, timedelta as td
 from calendar import WEDNESDAY
 from random import randint
 from os import getcwd, listdir, environ
+from os.path import isfile
 import re
 import pytz
+import logging
 
 url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
+log_path = environ.get('LOGPATH').strip()
+logging.basicConfig(level=logging.INFO, filename=f'''{log_path}/{dt.today().date()}.log''', filemode='w')
+last_update_filepath = '/tmp/blin/lastupdate'
 
 
 def how_long_to_session() -> str:
@@ -44,7 +49,7 @@ def parse_dice_query(query: str) -> str:
             return first_char + f'''({'+'.join(map(str, throw[2]))})'''
 
     result = []
-    for throw in re.finditer(r'[+-^](\d+)?d?\d+', query):
+    for throw in re.finditer(r'(^|[+-])\d*d?\d+', query):
         if 'd' in throw.group():
             multiplier, dice = throw.group().split('d')
             if len(dice) > 3:
@@ -67,27 +72,38 @@ def parse_dice_query(query: str) -> str:
 
 
 if __name__ == '__main__':
+    print('Я запустился!')
     while True:
-        data = get(url + 'getUpdates').json()
+        if isfile(last_update_filepath):
+            last_update_id = int(open(last_update_filepath, 'r').read() or -1) + 1
+        else:
+            last_update_id = 0
+        data = get(url + 'getUpdates', json={'offset': last_update_id}).json()
+        print(data)
         try:
             data = data['result']
         except KeyError as ke:
-            print(ke)
-            post(url + 'sendMessage',
+            logging.error('KeyError', exc_info=True)
+            post(
+                url + 'sendMessage',
                 json={
                     'chat_id': '91717534',
                     'text': f'Шеф, всё упало: {ke}'
                 }
             )
             continue
+        if data:
+            with open(last_update_filepath, 'w') as f:
+                f.write(str(max((x['update_id'] for x in data))))
         rs = [x['inline_query'] for x in data if 'inline_query' in x]
         for x in rs:
+            logging.info(x)
             if is_dice_query(x['query']):
                 try:
+                    logging.info('Is dice query')
                     result = parse_dice_query(x['query'])
                 except ValueError as ve:
-                    print(x['query'])
-                    raise ve
+                    logging.info(x['query'], ve)
                 results = [
                     {
                         'type': 'article',
