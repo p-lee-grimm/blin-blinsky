@@ -1,26 +1,68 @@
-#!/usr/bin/python3
+#!/home/tolord/blinenv/bin/python3
 from time import sleep
 from requests import post, get
 from datetime import datetime as dt, timedelta as td
-from calendar import WEDNESDAY
+from calendar import WEDNESDAY, THURSDAY
 from random import randint
-from os import getcwd, listdir, environ
-from os.path import isfile
+from os import getcwd, listdir, environ, getenv, makedirs
+from os.path import isfile, join, exists
+from random import sample
+from traceback import print_exception, format_exc
+from json import loads, JSONDecodeError
+from dotenv import load_dotenv
+import logging
+import telebot as tb
 import re
 import pytz
-import logging
 
-url = f'''https://api.telegram.org/bot{environ.get('TGTOKEN').strip()}/'''
-log_path = environ.get('LOGPATH').strip()
-logging.basicConfig(level=logging.INFO, filename=f'''{log_path}/{dt.today().date()}.log''', filemode='w')
-last_update_filepath = '/tmp/blin/lastupdate'
+load_dotenv('/home/tolord/blin-blinsky/.env')
+
+log_directory = getenv('LOGPATH') + f'/{dt.today().date().isoformat()}'
+if not exists(log_directory):
+    makedirs(log_directory)
+
+# Имя лог-файла
+log_file_name = "error.log"
+
+# Полный путь к файлу
+log_file_path = join(log_directory, log_file_name)
+
+# Настройка логгера
+logging.basicConfig(
+    level=logging.INFO,  # Уровень логгирования
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Формат сообщения
+    datefmt='%Y-%m-%d %H:%M:%S',  # Формат времени
+    handlers=[
+        logging.FileHandler(log_file_path),  # Обработчик для записи в файл
+        logging.StreamHandler()  # Также можно настроить вывод в консоль
+    ]
+)
+
+print(environ)
+
+bot = tb.TeleBot(getenv('TGTOKEN').strip())
+
+error_msg = 'Sorry, something went wrong. If you see this message, text to my creator please: @tolord'
+
+def get_first_or_obj(obj):
+    try:
+        return obj[0]
+    except Exception:
+        return obj
 
 
 def how_long_to_session() -> str:
+    def is_after_11_23():
+        return dt.now() >= dt(2023, 11, 24)
+    
     if dt.now().weekday() == WEDNESDAY and 16 <= dt.now(tz=pytz.utc).hour < 20:
         return 'сессия уже идёт!'
-    wdd = (dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - WEDNESDAY)).replace(hour=16, minute=0, second=0,
-                                                                                        microsecond=0)
+    wdd = (
+        dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - (WEDNESDAY if is_after_11_23() else THURSDAY))).replace(
+        hour=16 if is_after_11_23() else 17, 
+        minute=0 if is_after_11_23() else 30, 
+        second=0, 
+        microsecond=0)
     if wdd < dt.now(tz=pytz.utc):
         wdd += td(7)
     delta = int((wdd - dt.now(tz=pytz.utc)).total_seconds())
@@ -36,7 +78,7 @@ def how_long_to_session() -> str:
 
 
 def is_dice_query(query: str) -> bool:
-    return re.match(r'((\d+)?d?\d+)((\+(\d+)?d\d+)|([+\-]\d+))*$', query) is not None
+    return re.match(r'((\d+)?d?\d+)((\+(\d+)?d\d+)|([+\-]\d+))*$', query or '') is not None
 
 
 def parse_dice_query(query: str) -> str:
@@ -70,80 +112,85 @@ def parse_dice_query(query: str) -> str:
     return f'''{query} = {''.join(map(human_readable_throw_result, enumerate(result)))}''' \
            f''' = {sum((x[1] if x[0] == 'const' else sum(x[2]) * x[1] // abs(x[1]) for x in result))}'''
 
+@bot.message_handler(commands=['kto'])
+def list_shortcuts_handler(message):
+    bot.send_message(chat_id=91717534, text=f'''{message.chat.__dict__}''')
+    logging.info(f'''{message.from_user.username or message.from_user.id}: list''')
+    bot.reply_to(message=message, text='И правда, кто?')
+    bot.send_poll(
+        chat_id=message.chat.id,
+        question='Кто?',
+        options=sample([
+            'Кюин',
+            'Гай',
+            'Ния',
+            'Танингур',
+            'Мастер',
+            'Тангвилт',
+            'Рунгерд'
+        ], k=7)
+    )
 
-if __name__ == '__main__':
-    print('Я запустился!')
-    while True:
-        if isfile(last_update_filepath):
-            last_update_id = int(open(last_update_filepath, 'r').read() or -1) + 1
-        else:
-            last_update_id = 0
-        data = get(url + 'getUpdates', json={'offset': last_update_id}).json()
-        print(data)
-        try:
-            data = data['result']
-        except KeyError as ke:
-            logging.error('KeyError', exc_info=True)
-            post(
-                url + 'sendMessage',
-                json={
-                    'chat_id': '91717534',
-                    'text': f'Шеф, всё упало: {ke}'
+@bot.inline_handler(lambda query: is_dice_query(query.query))
+def process_dice_query(inline_query):
+    try:
+        logging.info('Is dice query')
+        result = parse_dice_query(inline_query.query)
+    except ValueError as ve:
+        logging.info(inline_query.query, ve)
+    results = [
+        tb.types.InlineQueryResultArticle(
+            id=str(hash(result)),
+            title='Бросаю...',
+            input_message_content=tb.types.InputTextMessageContent(
+                **{
+                    'message_text': f'''{inline_query.query}: {result}''' if result != 'Егор' else f'''{inline_query.from_user.first_name}, иди нахуй'''
                 }
             )
-            continue
-        if data:
-            with open(last_update_filepath, 'w') as f:
-                f.write(str(max((x['update_id'] for x in data))))
-        rs = [x['inline_query'] for x in data if 'inline_query' in x]
-        for x in rs:
-            logging.info(x)
-            if is_dice_query(x['query']):
-                try:
-                    logging.info('Is dice query')
-                    result = parse_dice_query(x['query'])
-                except ValueError as ve:
-                    logging.info(x['query'], ve)
-                results = [
-                    {
-                        'type': 'article',
-                        'id': str(hash(result)),
-                        'title': 'Бросаю...',
-                        'input_message_content': {
-                            'message_text': f'''{x['query']}: {result}''' if result != 'Егор' else f'{x["from"]["first_name"]}, иди нахуй'
-                        }
-                    }
-                ]
-            else:
-                result_how_long = how_long_to_session()
-                results = [
-                    {  # Compute time to session
-                        'type': 'article',
-                        'id': str(hash(str(result_how_long))),
-                        'title': 'Считаю...',
-                        'input_message_content': {
-                            'message_text': f'блин блинский {result_how_long}'
-                        }
-                    },
-                    {  # Link to Zoom
-                        'type': 'article',
-                        'id': str(hash('zoom')),
-                        'title': 'Ссылка на Zoom',
-                        'input_message_content': {
-                            'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'
-                        }
-                    },
-                    {  # Link to GitHub
-                        'type': 'article',
-                        'id': str(hash('github')),
-                        'title': 'Ссылка на Github',
-                        'input_message_content': {
-                            'message_text': f'Ссылка на GitHub: https://github.com/p-lee-grimm/blin-blinsky'
-                        }
-                    }
-                ]
-            r = post(url + 'answerInlineQuery', json={
-                'inline_query_id': x['id'],
-                'cache_time': 1,
-                'results': results
-            })
+        )
+    ]
+    bot.answer_inline_query(
+        inline_query.id, 
+        results, 
+        cache_time=1, 
+        is_personal=True
+    )
+
+@bot.inline_handler(lambda query: not is_dice_query(query.query))
+def process_not_dice_query(inline_query):
+    result_how_long = how_long_to_session()
+    results = [
+        tb.types.InlineQueryResultArticle(  # Compute time to session
+        **{
+            'id': str(hash(str(result_how_long))),
+            'title': 'Считаю...',
+            'input_message_content': tb.types.InputTextMessageContent(
+                **{'message_text': f'блин блинский {result_how_long}'}
+            )
+        }),
+        tb.types.InlineQueryResultArticle(
+        **{  # Link to Zoom
+            'id': str(hash('zoom')),
+            'title': 'Ссылка на Zoom',
+            'input_message_content': tb.types.InputTextMessageContent(
+                **{'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'}
+            )
+        }),
+        tb.types.InlineQueryResultArticle(
+        **{  # Link to GitHub
+            'id': str(hash('github')),
+            'title': 'Ссылка на Github',
+            'input_message_content': tb.types.InputTextMessageContent(
+                **{'message_text': f'Ссылка на GitHub: https://github.com/p-lee-grimm/blin-blinsky'}
+            )
+        })
+    ]
+    bot.answer_inline_query(
+        inline_query.id,
+        results,
+        cache_time=1,
+        is_personal=False
+    )
+
+if __name__ == '__main__':
+    bot.infinity_polling()
