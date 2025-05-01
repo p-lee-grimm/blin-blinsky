@@ -1,4 +1,4 @@
-#!/home/tolord/blinenv/bin/python3
+#!/home/tolord/cardholder-env/bin/python
 from time import sleep
 from requests import post, get
 from datetime import datetime as dt, timedelta as td
@@ -52,15 +52,13 @@ def get_first_or_obj(obj):
 
 
 def how_long_to_session() -> str:
-    def is_after_11_23():
-        return dt.now() >= dt(2023, 11, 24)
     
-    if dt.now().weekday() == WEDNESDAY and 16 <= dt.now(tz=pytz.utc).hour < 20:
+    if dt.now(tz=pytz.utc).weekday() == WEDNESDAY and 17 <= (dt.now(tz=pytz.utc) - td(minutes=30)).hour < 21:
         return 'сессия уже идёт!'
     wdd = (
-        dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - (WEDNESDAY if is_after_11_23() else THURSDAY))).replace(
-        hour=16 if is_after_11_23() else 17, 
-        minute=0 if is_after_11_23() else 30, 
+        dt.now(tz=pytz.utc) - td(dt.now(tz=pytz.utc).weekday() - THURSDAY)).replace(
+        hour=17, 
+        minute=30, 
         second=0, 
         microsecond=0)
     if wdd < dt.now(tz=pytz.utc):
@@ -121,14 +119,12 @@ def list_shortcuts_handler(message):
         chat_id=message.chat.id,
         question='Кто?',
         options=sample([
-            'Кюин',
-            'Гай',
-            'Ния',
-            'Танингур',
-            'Мастер',
-            'Тангвилт',
-            'Рунгерд'
-        ], k=7)
+            'Адриан',
+            'Шу-Мама',
+            'Максимус',
+            'Раджеш',
+            'Мастер'
+        ], k=5)
     )
 
 @bot.inline_handler(lambda query: is_dice_query(query.query))
@@ -173,7 +169,7 @@ def process_not_dice_query(inline_query):
             'id': str(hash('zoom')),
             'title': 'Ссылка на Zoom',
             'input_message_content': tb.types.InputTextMessageContent(
-                **{'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2463068144'}
+                **{'message_text': f'Ссылка на Zoom: https://yandex.zoom.us/j/2876222509'}
             )
         }),
         tb.types.InlineQueryResultArticle(
@@ -194,3 +190,4 @@ def process_not_dice_query(inline_query):
 
 if __name__ == '__main__':
     bot.infinity_polling()
+
